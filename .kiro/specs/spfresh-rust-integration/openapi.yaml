@@ -1,0 +1,877 @@
+openapi: 3.0.3
+info:
+  title: SPFresh Rust Integration API
+  description: |
+    API for vector search operations using SPFresh integrated with Rust.
+    This API provides endpoints for vector search, upsert, update, and delete operations.
+  version: 1.0.0
+  contact:
+    name: SPFresh Team
+servers:
+  - url: https://api.example.com/v1
+    description: Production server
+  - url: https://staging-api.example.com/v1
+    description: Staging server
+tags:
+  - name: Vector Operations
+    description: Endpoints for managing vectors
+  - name: Configuration
+    description: Endpoints for configuring namespaces
+  - name: Schema Management
+    description: Endpoints for managing schemas
+  - name: Encryption
+    description: Endpoints for managing encryption
+
+components:
+  schemas:
+    Vector:
+      type: array
+      items:
+        type: number
+        format: float
+      example: [0.1, 0.2, 0.3, 0.4]
+      description: A vector representation of data
+    
+    UpsertRow:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the vector
+        vector:
+          $ref: '#/components/schemas/Vector'
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Additional metadata associated with the vector
+    
+    UpsertRequest:
+      type: object
+      required:
+        - upsert_rows
+      properties:
+        upsert_rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpsertRow'  
+  
+    UpsertColumnsRequest:
+      type: object
+      required:
+        - ids
+        - vectors
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          description: Array of vector IDs
+        vectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vector'
+          description: Array of vectors
+        metadata:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: object
+          description: Column-oriented metadata
+    
+    UpdateRow:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the vector
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Metadata fields to update
+    
+    UpdateRequest:
+      type: object
+      required:
+        - patch_rows
+      properties:
+        patch_rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpdateRow'
+    
+    BatchDeleteRequest:
+      type: object
+      required:
+        - deletes
+      properties:
+        deletes:
+          type: array
+          items:
+            type: string
+          description: Array of vector IDs to delete
+    
+    ConditionalUpsertRequest:
+      type: object
+      required:
+        - upsert_rows
+        - condition
+      properties:
+        upsert_rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpsertRow'
+        condition:
+          type: string
+          description: Condition expression that must be met for the upsert to occur 
+   
+    ConditionalUpdateRequest:
+      type: object
+      required:
+        - patch_rows
+        - condition
+      properties:
+        patch_rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/UpdateRow'
+        condition:
+          type: string
+          description: Condition expression that must be met for the update to occur
+    
+    ConditionalDeleteRequest:
+      type: object
+      required:
+        - deletes
+        - condition
+      properties:
+        deletes:
+          type: array
+          items:
+            type: string
+          description: Array of vector IDs to delete
+        condition:
+          type: string
+          description: Condition expression that must be met for the deletion to occur
+    
+    FilterDeleteRequest:
+      type: object
+      required:
+        - delete_by_filter
+      properties:
+        delete_by_filter:
+          type: object
+          additionalProperties: true
+          description: Filter conditions for deletion
+    
+    ConfigureMetricRequest:
+      type: object
+      required:
+        - distance_metric
+      properties:
+        distance_metric:
+          type: string
+          enum: [cosine_distance, l2_distance, dot_product]
+          description: Distance metric to use for vector similarity
+    
+    SchemaRequest:
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - type
+            properties:
+              name:
+                type: string
+              type:
+                type: string
+                enum: [text, number, boolean, vector]
+              filterable:
+                type: boolean
+              indexed:
+                type: boolean    
+
+    EncryptionRequest:
+      type: object
+      required:
+        - encryption_key
+      properties:
+        encryption_key:
+          type: string
+          format: byte
+          description: Encryption key for the namespace
+        encryption_algorithm:
+          type: string
+          enum: [AES256-GCM, ChaCha20-Poly1305]
+          default: AES256-GCM
+          description: Encryption algorithm to use
+    
+    CopyRequest:
+      type: object
+      required:
+        - destination_namespace
+      properties:
+        destination_namespace:
+          type: string
+          description: Destination namespace for the copy operation
+        filter:
+          type: object
+          additionalProperties: true
+          description: Optional filter to apply during copy
+    
+    OperationResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        count:
+          type: integer
+          description: Number of affected items
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              error:
+                type: string
+  
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Keypaths:
+
+  /namespaces/{namespace}/upsert:
+    post:
+      tags:
+        - Vector Operations
+      summary: Upsert vectors in row format
+      description: Add or update vectors and their associated metadata in row format
+      operationId: upsertVectors
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertRequest'
+      responses:
+        '200':
+          description: Vectors successfully upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+  
+  /namespaces/{namespace}/upsert-columns:
+    post:
+      tags:
+        - Vector Operations
+      summary: Upsert vectors in column format
+      description: Add or update vectors and their associated metadata in column format
+      operationId: upsertVectorsColumns
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertColumnsRequest'
+      responses:
+        '200':
+          description: Vectors successfully upserted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []  
+  
+/namespaces/{namespace}/update:
+    patch:
+      tags:
+        - Vector Operations
+      summary: Update vector metadata
+      description: Update metadata for existing vectors
+      operationId: updateVectors
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRequest'
+      responses:
+        '200':
+          description: Vectors successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: One or more vectors not found
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+  
+  /namespaces/{namespace}/update-columns:
+    patch:
+      tags:
+        - Vector Operations
+      summary: Update vector metadata in column format
+      description: Update metadata for existing vectors in column format
+      operationId: updateVectorsColumns
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertColumnsRequest'
+      responses:
+        '200':
+          description: Vectors successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: One or more vectors not found
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: [] 
+ 
+  /namespaces/{namespace}/batch-delete:
+    delete:
+      tags:
+        - Vector Operations
+      summary: Delete vectors by ID
+      description: Delete multiple vectors by their IDs
+      operationId: batchDeleteVectors
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchDeleteRequest'
+      responses:
+        '200':
+          description: Vectors successfully deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+  
+  /namespaces/{namespace}/conditional-upsert:
+    post:
+      tags:
+        - Vector Operations
+      summary: Conditionally upsert vectors
+      description: Add or update vectors only if the specified condition is met
+      operationId: conditionalUpsertVectors
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConditionalUpsertRequest'
+      responses:
+        '200':
+          description: Vectors successfully upserted or condition not met
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []  
+
+  /namespaces/{namespace}/conditional-update:
+    patch:
+      tags:
+        - Vector Operations
+      summary: Conditionally update vectors
+      description: Update vectors only if the specified condition is met
+      operationId: conditionalUpdateVectors
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConditionalUpdateRequest'
+      responses:
+        '200':
+          description: Vectors successfully updated or condition not met
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: One or more vectors not found
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+  
+  /namespaces/{namespace}/conditional-delete:
+    delete:
+      tags:
+        - Vector Operations
+      summary: Conditionally delete vectors
+      description: Delete vectors only if the specified condition is met
+      operationId: conditionalDeleteVectors
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConditionalDeleteRequest'
+      responses:
+        '200':
+          description: Vectors successfully deleted or condition not met
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []  
+  /names
+paces/{namespace}/filter-delete:
+    delete:
+      tags:
+        - Vector Operations
+      summary: Delete vectors by filter
+      description: Delete vectors that match the specified filter criteria
+      operationId: filterDeleteVectors
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FilterDeleteRequest'
+      responses:
+        '200':
+          description: Vectors successfully deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+  
+  /namespaces/{namespace}/configure-metric:
+    post:
+      tags:
+        - Configuration
+      summary: Configure distance metric
+      description: Set the distance metric for vector similarity calculations
+      operationId: configureMetric
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfigureMetricRequest'
+      responses:
+        '200':
+          description: Metric successfully configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []  
+
+  /namespaces/{namespace}/schema:
+    post:
+      tags:
+        - Schema Management
+      summary: Create schema
+      description: Create a new schema for the namespace
+      operationId: createSchema
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchemaRequest'
+      responses:
+        '201':
+          description: Schema successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '409':
+          description: Schema already exists
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+    
+    put:
+      tags:
+        - Schema Management
+      summary: Update schema
+      description: Update an existing schema for the namespace
+      operationId: updateSchema
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SchemaRequest'
+      responses:
+        '200':
+          description: Schema successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Schema not found
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []  
+  
+/namespaces/{namespace}/encryption:
+    post:
+      tags:
+        - Encryption
+      summary: Enable encryption
+      description: Enable encryption for the namespace
+      operationId: enableEncryption
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncryptionRequest'
+      responses:
+        '200':
+          description: Encryption successfully enabled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+    
+    put:
+      tags:
+        - Encryption
+      summary: Update encryption
+      description: Update encryption settings for the namespace
+      operationId: updateEncryption
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EncryptionRequest'
+      responses:
+        '200':
+          description: Encryption successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Encryption not enabled
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []  
+  /
+namespaces/{namespace}/copy:
+    post:
+      tags:
+        - Vector Operations
+      summary: Copy namespace
+      description: Copy vectors from one namespace to another
+      operationId: copyNamespace
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CopyRequest'
+      responses:
+        '200':
+          description: Namespace successfully copied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResponse'
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Source namespace not found
+        '409':
+          description: Destination namespace already exists
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []
+  
+  /namespaces/{namespace}/search:
+    post:
+      tags:
+        - Vector Operations
+      summary: Search vectors
+      description: Search for vectors similar to the query vector
+      operationId: searchVectors
+      parameters:
+        - name: namespace
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - vector
+              properties:
+                vector:
+                  $ref: '#/components/schemas/Vector'
+                top_k:
+                  type: integer
+                  default: 10
+                  description: Number of results to return
+                filters:
+                  type: object
+                  additionalProperties: true
+                  description: Filter conditions for search
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        score:
+                          type: number
+                          format: float
+                        metadata:
+                          type: object
+                          additionalProperties: true
+        '400':
+          description: Invalid request
+        '401':
+          description: Unauthorized
+        '404':
+          description: Namespace not found
+        '500':
+          description: Internal server error
+      security:
+        - BearerAuth: []
+        - ApiKeyAuth: []

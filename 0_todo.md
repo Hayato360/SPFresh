@@ -387,6 +387,138 @@ Client Application                          SPFresh-Rust System
    │  Response   │◀────────────────────────────────────────────────
    └─────────────┘
 ```
+
+```
+
+Client Application                          SPFresh-Rust System
+─────────────────                           ────────────────────────────────────────────────
+┌─────────────┐                          ┌──────────────────────────────────────────────┐
+│   Client    │                          │                  API LAYER                   │
+│   Query     │                          │                                              │
+└──────┬──────┘                          │  ┌────────────────────────────────┐          │
+       │                                 │  │      Query Processing          │          │
+       ▼                                 │  │                                │          │
+┌─────────────┐     HTTP Request         │  │  • Parse query parameters      │          │
+│ Query JSON  │  ───────────────────────▶│  │  • Validate query format       │          │
+│ Parameters  │                          │  │  • Set query options           │          │
+└─────────────┘                          │  └─────────────────┬──────────────┘          │
+                                         │                    │                         │
+                                         └────────────────────┼─────────────────────────┘
+                                                              │
+                                                              ▼
+                                            ┌──────────────────────────────────────────────┐
+                                            │              QUERY PREPARATION               │
+                                            │                                              │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Query Vector Creation     │          │
+                                            │  │                                │          │
+                                            │  │  • Convert text to vector      │          │
+                                            │  │  • Or use provided vector      │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            │                    ▼                         │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Query Parameters          │          │
+                                            │  │                                │          │
+                                            │  │  • K nearest neighbors         │          │
+                                            │  │  • Distance threshold          │          │
+                                            │  │  • Filter conditions           │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            └────────────────────┼─────────────────────────┘
+                                                                │
+                                                                ▼
+                                            ┌──────────────────────────────────────────────┐
+                                            │                 FFI LAYER                    │
+                                            │                                              │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Query FFI Handling        │          │
+                                            │  │                                │          │
+                                            │  │  • Convert query parameters    │          │
+                                            │  │  • Prepare memory buffers      │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            └────────────────────┼─────────────────────────┘
+                                                                │
+                                                                ▼
+                                            ┌──────────────────────────────────────────────┐
+                                            │              SPFRESH SEARCH                  │
+                                            │                                              │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Query Routing             │          │
+                                            │  │                                │          │
+                                            │  │  • Select appropriate index    │          │
+                                            │  │  • Apply region-based routing  │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            │                    ▼                         │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Cache Lookup              │          │
+                                            │  │                                │          │
+                                            │  │  • Check query cache           │          │
+                                            │  │  • Return if cache hit         │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            │                    ▼                         │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      SPANN Search Algorithm    │          │
+                                            │  │                                │          │
+                                            │  │  • Find nearest centroids      │          │
+                                            │  │  • Retrieve posting lists      │          │
+                                            │  │  • Calculate distances         │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            └────────────────────┼─────────────────────────┘
+                                                                │
+                                                                ▼
+                                            ┌──────────────────────────────────────────────┐
+                                            │              STORAGE ACCESS                  │
+                                            │                                              │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Posting List Retrieval    │          │
+                                            │  │                                │          │
+                                            │  │  • Access disk/cloud storage   │          │
+                                            │  │  • Load posting lists          │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            │                    ▼                         │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Vector Data Access        │          │
+                                            │  │                                │          │
+                                            │  │  • Retrieve vector data        │          │
+                                            │  │  • Apply filters               │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            └────────────────────┼─────────────────────────┘
+                                                                │
+                                                                ▼
+                                            ┌──────────────────────────────────────────────┐
+                                            │              RESULT PROCESSING               │
+                                            │                                              │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Result Ranking            │          │
+                                            │  │                                │          │
+                                            │  │  • Sort by distance            │          │
+                                            │  │  • Apply post-filters          │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            │                    ▼                         │
+                                            │  ┌────────────────────────────────┐          │
+                                            │  │      Result Formatting         │          │
+                                            │  │                                │          │
+                                            │  │  • Format JSON response        │          │
+                                            │  │  • Add metadata and scores     │          │
+                                            │  │  • Cache results if needed     │          │
+                                            │  └─────────────────┬──────────────┘          │
+                                            │                    │                         │
+                                            └────────────────────┼─────────────────────────┘
+                                                                 │
+┌─────────────┐                                                  │                                
+│   Query     │                                                  │                                    
+│  Results    │◀────────────────────────────────────────────────┘                                     
+└─────────────┘                            
+
+```
 ## Details Data Flow Journey (API)
 
 ### Vector Upsert Flow
@@ -638,9 +770,9 @@ Client Application                          SPFresh-Rust System
 │                      │
 │   QUERY PARSER       │
 │                      │
-└┬─────────────────────┘
- │
- ├───────────────┬──────────────────┬─────────────────┐
+└────────────┬─────────┘
+             │
+ ┌───────────────┬──────────────────┬─────────────────┐
  │               │                  │                 │
  ▼               ▼                  ▼                 ▼
 ┌───────────────────┐ ┌────────────────────┐ ┌───────────────────┐ ┌───────────────────┐
@@ -876,6 +1008,22 @@ Response:
   ],
   "found": 2,
   "search_time_ms": 15
+}
+```
+
+### Batch Delete Operation
+```
+DELETE /v1/namespaces/product-catalog/batch-delete
+{
+  "deletes": ["product-123", "product-456"]
+}
+
+Response:
+{
+  "status": "ok",
+  "deleted": 2,
+  "errors": [],
+  "operation_id": "op-2025-07-23-stuvwx901234"
 }
 ```
 
@@ -1132,325 +1280,6 @@ Bloom filters
 
 ```
 
-## OpenAPI Specification API
-```
 
-components:
-  securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: X-API-Key
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-      
-  schemas:
-    Vector:
-      type: array
-      items:
-        type: number
-      example: [0.1, 0.2, 0.3, 0.4]
-      
-    Metadata:
-      type: object
-      example: {"title": "Product A", "category": "electronics"}
-      
-    VectorRecord:
-      type: object
-      required:
-        - id
-        - vector
-      properties:
-        id:
-          type: string
-        vector:
-          $ref: '#/components/schemas/Vector'
-        metadata:
-          $ref: '#/components/schemas/Metadata'
-          
-    UpsertRequest:
-      type: object
-      required:
-        - upsert_rows
-      properties:
-        upsert_rows:
-          type: array
-          items:
-            $ref: '#/components/schemas/VectorRecord'
-            
-    UpsertColumnsRequest:
-      type: object
-      required:
-        - ids
-        - vectors
-      properties:
-        ids:
-          type: array
-          items:
-            type: string
-        vectors:
-          type: array
-          items:
-            $ref: '#/components/schemas/Vector'
-        metadata:
-          type: array
-          items:
-            $ref: '#/components/schemas/Metadata'
-            
-    UpdateRequest:
-      type: object
-      required:
-        - patch_rows
-      properties:
-        patch_rows:
-          type: array
-          items:
-            type: object
-            required:
-              - id
-              - metadata
-            properties:
-              id:
-                type: string
-              metadata:
-                $ref: '#/components/schemas/Metadata'
-                
-    BatchDeleteRequest:
-      type: object
-      required:
-        - deletes
-      properties:
-        deletes:
-          type: array
-          items:
-            type: string
-            
-    ConditionalRequest:
-      type: object
-      required:
-        - condition
-      properties:
-        condition:
-          type: object
-          
-    FilterDeleteRequest:
-      type: object
-      required:
-        - delete_by_filter
-      properties:
-        delete_by_filter:
-          type: object
-          
-    ConfigureMetricRequest:
-      type: object
-      required:
-        - distance_metric
-      properties:
-        distance_metric:
-          type: string
-          enum: [cosine_distance, euclidean_distance, dot_product]
-          
-    SuccessResponse:
-      type: object
-      required:
-        - status
-      properties:
-        status:
-          type: string
-          enum: [ok]
-        inserted:
-          type: integer
-        updated:
-          type: integer
-        deleted:
-          type: integer
-        errors:
-          type: array
-          items:
-            type: object
-      example:
-        status: "ok"
-        inserted: 3
-        updated: 0
-        deleted: 0
-        errors: []
-        
-    ErrorResponse:
-      type: object
-      required:
-        - error
-        - code
-      properties:
-        error:
-          type: string
-        code:
-          type: integer
-
-paths:
-  /namespaces/{namespace}/upsert:
-    post:
-      summary: Add or update vectors
-      parameters:
-        - name: namespace
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpsertRequest'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-                
-  /namespaces/{namespace}/upsert-columns:
-    post:
-      summary: Add or update vectors in column format
-      parameters:
-        - name: namespace
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpsertColumnsRequest'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-                
-  /namespaces/{namespace}/update:
-    patch:
-      summary: Update metadata for existing vectors
-      parameters:
-        - name: namespace
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateRequest'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-                
-  /namespaces/{namespace}/batch-delete:
-    delete:
-      summary: Delete multiple vectors by ID
-      parameters:
-        - name: namespace
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/BatchDeleteRequest'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-                
-  /namespaces/{namespace}/conditional-upsert:
-    post:
-      summary: Add or update vectors if condition is met
-      parameters:
-        - name: namespace
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              allOf:
-                - $ref: '#/components/schemas/UpsertRequest'
-                - $ref: '#/components/schemas/ConditionalRequest'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-                
-  /namespaces/{namespace}/filter-delete:
-    delete:
-      summary: Delete vectors matching filter criteria
-      parameters:
-        - name: namespace
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FilterDeleteRequest'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-                
-  /namespaces/{namespace}/configure-metric:
-    post:
-      summary: Configure distance metric for namespace
-      parameters:
-        - name: namespace
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ConfigureMetricRequest'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SuccessResponse'
-```
 
 
